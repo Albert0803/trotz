@@ -1,8 +1,8 @@
 {
-  "name": "J.A.R.V.I.S. Advanced Intelligence",
-  "description": "A sophisticated AI assistant inspired by J.A.R.V.I.S. from Iron Man, powered by Gemini for real-time voice interaction, vision-based screen sharing, and multi-tool capabilities including Maps, Timers, and Document Analysis.",
   "requestFramePermissions": [
     "microphone",
     "camera"
-  ]
+  ],
+  "name": "",
+  "description": ""
 }

@@ -7,12 +7,6 @@ export enum AppStatus {
   ERROR = 'ERROR'
 }
 
-export interface Message {
-  role: 'user' | 'jarvis';
-  content: string;
-  timestamp: number;
-}
-
 export interface MapData {
   uri: string;
   title: string;
