@@ -1,0 +1,107 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J.A.R.V.I.S. Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes rotate-ccw {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(-360deg); }
+        }
+        @keyframes rotate-cw {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        @keyframes flicker {
+            0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+            20%, 24%, 55% { opacity: 0.8; }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { filter: drop-shadow(0 0 5px rgba(0, 229, 255, 0.4)); transform: scale(1); }
+            50% { filter: drop-shadow(0 0 20px rgba(0, 229, 255, 0.8)); transform: scale(1.02); }
+        }
+        @keyframes bar-grow {
+            0%, 100% { height: 10%; }
+            50% { height: 80%; }
+        }
+        @keyframes scanning {
+            0% { top: -10%; }
+            100% { top: 110%; }
+        }
+        @keyframes data-flow {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
+        
+        .animate-rotate-ccw { animation: rotate-ccw 40s linear infinite; }
+        .animate-rotate-cw { animation: rotate-cw 30s linear infinite; }
+        .animate-rotate-cw-fast { animation: rotate-cw 10s linear infinite; }
+        .animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+        .animate-bar { animation: bar-grow 0.5s ease-in-out infinite; }
+        .scanning-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00e5ff, transparent);
+            box-shadow: 0 0 15px #00e5ff;
+            animation: scanning 3s linear infinite;
+            z-index: 50;
+        }
+
+        body {
+            background-color: #010409;
+            overflow: hidden;
+            margin: 0;
+            color: #e2e8f0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        .scanline-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 229, 255, 0.01) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .glow-cyan {
+            filter: drop-shadow(0 0 12px rgba(0, 229, 255, 0.7));
+        }
+
+        .hex-pattern {
+            background-image: 
+                linear-gradient(30deg, #00e5ff09 12%, transparent 12.5%, transparent 87%, #00e5ff09 87.5%, #00e5ff09),
+                linear-gradient(150deg, #00e5ff09 12%, transparent 12.5%, transparent 87%, #00e5ff09 87.5%, #00e5ff09),
+                linear-gradient(30deg, #00e5ff09 12%, transparent 12.5%, transparent 87%, #00e5ff09 87.5%, #00e5ff09),
+                linear-gradient(150deg, #00e5ff09 12%, transparent 12.5%, transparent 87%, #00e5ff09 87.5%, #00e5ff09),
+                linear-gradient(60deg, #00e5ff11 25%, transparent 25.5%, transparent 75%, #00e5ff11 75%, #00e5ff11),
+                linear-gradient(60deg, #00e5ff11 25%, transparent 25.5%, transparent 75%, #00e5ff11 75%, #00e5ff11);
+            background-size: 80px 140px;
+            background-position: 0 0, 0 0, 40px 70px, 40px 70px, 0 0, 40px 70px;
+        }
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react": "https://esm.sh/react@^19.2.3"
+  }
+}
+</script>
+</head>
+<body>
+    <div class="scanline-overlay"></div>
+    <div id="root"></div>
+</body>
+</html>
