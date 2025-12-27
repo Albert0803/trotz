@@ -56,11 +56,17 @@ const App: React.FC = () => {
   const connect = async () => {
     try {
       setStatus(AppStatus.CONNECTING);
+      
+      // Initialisation ou reprise des contextes audio
       if (!inputCtxRef.current) {
         inputCtxRef.current = new AudioContext({ sampleRate: 16000 });
         outputCtxRef.current = new AudioContext({ sampleRate: 24000 });
       }
       
+      // IMPORTANT: Reprendre le contexte suite à l'interaction utilisateur pour éviter le mode muet
+      if (inputCtxRef.current.state === 'suspended') await inputCtxRef.current.resume();
+      if (outputCtxRef.current.state === 'suspended') await outputCtxRef.current.resume();
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
       
@@ -69,7 +75,7 @@ const App: React.FC = () => {
         config: {
           responseModalities: [Modality.AUDIO],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Puck' } } },
-          systemInstruction: "Vous êtes J.A.R.V.I.S., l'IA de Tony Stark. Comportez-vous comme un majordome britannique sophistiqué. Appelez l'utilisateur 'Monsieur'. Vous recevez des flux audio, des images et des messages texte contenant le contenu de documents (PDF, Word, PPTX). 1. Lorsqu'un contenu de document vous est envoyé, analysez-le immédiatement. 2. Utilisez 'displayContent' pour afficher une synthèse ou une version corrigée. 3. Commentez vocalement vos trouvailles avec votre flegme habituel.",
+          systemInstruction: "Vous êtes J.A.R.V.I.S., l'IA de Tony Stark. Comportez-vous comme un majordome britannique sophistiqué. Appelez l'utilisateur 'Monsieur'. Vous recevez des flux audio, des images et des messages texte contenant le contenu de documents (PDF, Word, PPTX). 1. Lorsqu'un contenu de document vous est envoyé, analysez-le immédiatement. 2. Utilisez 'displayContent' pour afficher une synthèse ou une version corrigée. 3. Commentez vocalement vos trouvailles avec votre flegme habituel. Soyez concis et élégant.",
           tools: [{ functionDeclarations: functions }, { googleSearch: {} }]
         },
         callbacks: {
@@ -81,7 +87,9 @@ const App: React.FC = () => {
               const data = e.inputBuffer.getChannelData(0);
               const int16 = new Int16Array(data.length);
               for (let i = 0; i < data.length; i++) int16[i] = data[i] * 32768;
-              sessionPromise.then(s => s.sendRealtimeInput({ media: { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' } }));
+              sessionPromise.then(s => {
+                if (s) s.sendRealtimeInput({ media: { data: encode(new Uint8Array(int16.buffer)), mimeType: 'audio/pcm;rate=16000' } });
+              });
             };
             source.connect(processor);
             processor.connect(inputCtxRef.current!.destination);
@@ -90,19 +98,32 @@ const App: React.FC = () => {
             const audio = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
             if (audio && outputCtxRef.current) {
               setStatus(AppStatus.SPEAKING);
+              
+              // S'assurer que le contexte est actif
+              if (outputCtxRef.current.state === 'suspended') await outputCtxRef.current.resume();
+              
+              // Calcul du temps de démarrage pour un flux sans coupure
               nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtxRef.current.currentTime);
-              const buffer = await decodeAudioData(decode(audio), outputCtxRef.current, 24000, 1);
-              const source = outputCtxRef.current.createBufferSource();
-              source.buffer = buffer;
-              source.connect(outputCtxRef.current.destination);
-              source.onended = () => {
-                sourcesRef.current.delete(source);
-                if (sourcesRef.current.size === 0) setStatus(AppStatus.LISTENING);
-              };
-              source.start(nextStartTimeRef.current);
-              nextStartTimeRef.current += buffer.duration;
-              sourcesRef.current.add(source);
+              
+              try {
+                const buffer = await decodeAudioData(decode(audio), outputCtxRef.current, 24000, 1);
+                const source = outputCtxRef.current.createBufferSource();
+                source.buffer = buffer;
+                source.connect(outputCtxRef.current.destination);
+                
+                source.onended = () => {
+                  sourcesRef.current.delete(source);
+                  if (sourcesRef.current.size === 0) setStatus(AppStatus.LISTENING);
+                };
+                
+                source.start(nextStartTimeRef.current);
+                nextStartTimeRef.current += buffer.duration;
+                sourcesRef.current.add(source);
+              } catch (err) {
+                console.error("Erreur de décodage audio:", err);
+              }
             }
+            
             if (msg.toolCall) {
               for (const fc of msg.toolCall.functionCalls) {
                 if (fc.name === 'setTimer') {
@@ -114,11 +135,28 @@ const App: React.FC = () => {
                 }
               }
             }
+
+            if (msg.serverContent?.interrupted) {
+              sourcesRef.current.forEach(s => { try { s.stop(); } catch(e) {} });
+              sourcesRef.current.clear();
+              nextStartTimeRef.current = 0;
+              setStatus(AppStatus.LISTENING);
+            }
+          },
+          onerror: (e) => {
+            console.error('Session Error:', e);
+            setStatus(AppStatus.ERROR);
+          },
+          onclose: () => {
+            setStatus(AppStatus.IDLE);
           }
         }
       });
       sessionRef.current = await sessionPromise;
-    } catch (e) { setStatus(AppStatus.ERROR); }
+    } catch (e) { 
+      console.error(e);
+      setStatus(AppStatus.ERROR); 
+    }
   };
 
   const processDocx = async (file: File) => {
@@ -158,9 +196,11 @@ const App: React.FC = () => {
       canvas.height = viewport.height; canvas.width = viewport.width;
       await page.render({ canvasContext: canvas.getContext('2d')!, viewport }).promise;
       const base64 = canvas.toDataURL('image/jpeg', 0.6).split(',')[1];
-      sessionRef.current?.sendRealtimeInput({ media: { data: base64, mimeType: 'image/jpeg' } });
+      if (sessionRef.current) {
+        sessionRef.current.sendRealtimeInput({ media: { data: base64, mimeType: 'image/jpeg' } });
+      }
     }
-    return "PDF_ENVOYÉ_VIA_IMAGES";
+    return "PDF_SCAN_COMPLETED";
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,9 +225,8 @@ const App: React.FC = () => {
       }
 
       if (extractedText) {
-        // On injecte le texte directement dans la session via un message contextuel
         sessionRef.current.sendRealtimeInput([{ 
-          text: `Monsieur télécharge un fichier nommé ${file.name}. Voici son contenu textuel intégral pour analyse : \n\n ${extractedText}` 
+          text: `Monsieur télécharge un fichier nommé ${file.name}. Voici son contenu : \n\n ${extractedText}` 
         }]);
       }
     } catch (err) {
@@ -226,6 +265,11 @@ const App: React.FC = () => {
     } catch (e) { console.error(e); }
   };
 
+  useEffect(() => {
+    const timer = setInterval(() => setTimers(prev => prev.map(t => ({ ...t, remaining: Math.max(0, t.remaining - 1) })).filter(t => t.remaining > 0)), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <div className="w-screen h-screen flex flex-col items-center justify-center relative bg-[#010409]">
       <HUD status={status} isProcessing={isProcessingFile} />
@@ -242,10 +286,10 @@ const App: React.FC = () => {
       <div className="absolute bottom-10 left-10 opacity-40 text-[10px] font-mono text-cyan-400 space-y-1 z-10">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${status !== AppStatus.IDLE ? 'bg-cyan-400 animate-pulse' : 'bg-gray-600'}`}></div>
-          STARK_SYSTEM_v7.5.0_MULTI_OFFICE
+          STARK_SYSTEM_v7.6.2_AUDIO_REPAIRED
         </div>
-        <div className="pl-4">DOC_ANALYZER: PDF_WORD_PPTX_ACTIVE</div>
-        {isProcessingFile && <div className="pl-4 text-yellow-400 animate-pulse">DECOMPILING_OFFICE_STRUCTURE...</div>}
+        <div className="pl-4">OUTPUT_MODE: SPEAKER_UPLINK_STABLE</div>
+        {isProcessingFile && <div className="pl-4 text-yellow-400 animate-pulse">ANALYZING_DOCUMENTS...</div>}
       </div>
     </div>
   );
