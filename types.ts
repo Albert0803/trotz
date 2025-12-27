@@ -19,3 +19,9 @@ export interface TimerData {
   label: string;
   isActive: boolean;
 }
+
+export interface DisplayedContent {
+  title: string;
+  content: string;
+  type: 'text' | 'code' | 'correction';
+}
