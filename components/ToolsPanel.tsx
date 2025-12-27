@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TimerData, MapData } from '../types';
+import { TimerData } from '../types';
 
 interface ToolsPanelProps {
   timers: TimerData[];
@@ -23,13 +23,18 @@ const ToolsPanel: React.FC<ToolsPanelProps> = ({ timers, onScreenShare, onFileUp
         
         <label className="w-12 h-12 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center cursor-pointer border border-cyan-500/20 hover:bg-cyan-400 hover:text-black transition-all">
           <i className="fas fa-file-arrow-up"></i>
-          <input type="file" className="hidden" onChange={onFileUpload} />
+          <input 
+            type="file" 
+            className="hidden" 
+            onChange={onFileUpload} 
+            accept="image/*,application/pdf,.docx,.pptx"
+          />
         </label>
       </div>
 
       {timers.length > 0 && (
-        <div className="bg-cyan-950/40 p-3 rounded-xl border border-cyan-500/20 w-48">
-          <h3 className="text-[10px] text-cyan-400 font-bold uppercase mb-2">Minuteurs</h3>
+        <div className="bg-cyan-950/40 p-3 rounded-xl border border-cyan-500/20 w-48 animate-in fade-in slide-in-from-right-4">
+          <h3 className="text-[10px] text-cyan-400 font-bold uppercase mb-2">Processus Actifs</h3>
           {timers.map(t => (
             <div key={t.id} className="flex justify-between text-xs font-mono text-cyan-300">
               <span>{t.label}</span>
